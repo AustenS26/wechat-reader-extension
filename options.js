@@ -107,9 +107,12 @@ document.getElementById('btn-export').addEventListener('click', () => {
       '',
       '### Summary',
       n.summary,
+      n.structure ? `\n### Article Structure\n${n.structure}` : '',
       '',
       '### Key Insights',
       n.insights,
+      n.conclusion ? `\n### Core Conclusion\n${n.conclusion}` : '',
+      n.authorIntent ? `\n### Author Intent\n${n.authorIntent}` : '',
       n.myNotes ? `\n### My Notes\n${n.myNotes}` : '',
       '\n---'
     ].filter(l => l !== null).join('\n')).join('\n\n');

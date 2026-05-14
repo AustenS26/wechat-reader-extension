@@ -43,16 +43,25 @@ async function loadAndSummarize() {
 
   const system = `You are a reading assistant. Analyze the article and respond in the same language as the article content (Chinese or English).
 
-Format your response EXACTLY like this (use these exact headers):
+Format your response EXACTLY using these section headers in this order. Do not add extra headers or change the names.
 
 SUMMARY
-[3–5 sentences covering the core argument and main points]
+[3–5 sentences: what is this article about and what does it argue]
+
+ARTICLE STRUCTURE
+[A brief outline of how the article is organized — e.g. "① Background → ② Problem statement → ③ Case studies → ④ Recommendations". Keep it to 3–6 steps, one line each]
 
 KEY INSIGHTS
+• [specific, reusable insight — a fact, framework, or perspective worth keeping]
 • [insight]
 • [insight]
-• [insight]
-• [insight if applicable]`;
+• [insight if applicable]
+
+CORE CONCLUSION
+[1–2 sentences: the single most important takeaway — what should the reader walk away believing or doing]
+
+AUTHOR INTENT
+[What is the author trying to achieve? What is their angle, agenda, or goal? Do they have a clear bias or vested interest? Is this a pitch, a warning, an opinion piece, or something else? Be candid.]`;
 
   const res = await msg('callAI', {
     system,
@@ -70,22 +79,30 @@ KEY INSIGHTS
 
   const text = res.result;
 
-  const summaryMatch = text.match(/SUMMARY\s*([\s\S]*?)(?=KEY INSIGHTS|$)/i);
-  const insightsMatch = text.match(/KEY INSIGHTS\s*([\s\S]*?)$/i);
+  function extractSection(text, header, nextHeaders) {
+    const pattern = new RegExp(`${header}\\s*([\\s\\S]*?)(?=${nextHeaders.join('|')}|$)`, 'i');
+    return text.match(pattern)?.[1]?.trim() || '';
+  }
 
-  const summaryText = summaryMatch?.[1]?.trim() || text;
-  const insightsText = insightsMatch?.[1]?.trim() || '';
+  const summaryText     = extractSection(text, 'SUMMARY',          ['ARTICLE STRUCTURE', 'KEY INSIGHTS', 'CORE CONCLUSION', 'AUTHOR INTENT']);
+  const structureText   = extractSection(text, 'ARTICLE STRUCTURE', ['KEY INSIGHTS', 'CORE CONCLUSION', 'AUTHOR INTENT']);
+  const insightsText    = extractSection(text, 'KEY INSIGHTS',      ['CORE CONCLUSION', 'AUTHOR INTENT']);
+  const conclusionText  = extractSection(text, 'CORE CONCLUSION',   ['AUTHOR INTENT']);
+  const authorText      = extractSection(text, 'AUTHOR INTENT',     []);
 
   $('summary-text').innerHTML = summaryText.replace(/\n/g, '<br>');
+  $('conclusion-text').innerHTML = conclusionText.replace(/\n/g, '<br>');
+  $('author-text').innerHTML = authorText.replace(/\n/g, '<br>');
 
-  if (insightsText) {
-    const items = insightsText
-      .split('\n')
-      .filter(l => l.trim())
-      .map(l => `<li>${l.replace(/^[•\-\*]\s*/, '').trim()}</li>`)
+  function renderBullets(raw) {
+    const items = raw.split('\n').filter(l => l.trim())
+      .map(l => `<li>${l.replace(/^[•\-\*①②③④⑤]\s*/, '').trim()}</li>`)
       .join('');
-    $('insights-text').innerHTML = `<ul>${items}</ul>`;
+    return `<ul>${items}</ul>`;
   }
+
+  if (structureText) $('structure-text').innerHTML = renderBullets(structureText);
+  if (insightsText)  $('insights-text').innerHTML  = renderBullets(insightsText);
 
   chatHistory = [
     { role: 'user', content: `Article title: ${article.title}\n\n${truncated}` },
@@ -158,7 +175,10 @@ $('btn-save-note').addEventListener('click', async () => {
     url: article?.url || '',
     author: article?.author || '',
     summary: $('summary-text').innerText,
+    structure: $('structure-text').innerText,
     insights: $('insights-text').innerText,
+    conclusion: $('conclusion-text').innerText,
+    authorIntent: $('author-text').innerText,
     myNotes: $('my-notes').value.trim()
   };
 
