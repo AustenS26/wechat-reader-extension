@@ -499,4 +499,32 @@ $('main-content').addEventListener('click', async event => {
   }
 });
 
+// Receive user-selected excerpts from the article page
+chrome.runtime.onMessage.addListener(message => {
+  if (message.type !== 'userExcerpt') return;
+  addUserExcerpt(message.text, message.paragraphId);
+});
+
+function addUserExcerpt(text, paragraphId) {
+  if (!currentAnalysis) return;
+  const ref  = paragraphId ? `[P${paragraphId}] ` : '';
+  const line = `• ${ref}"${text.trim()}" — (Reader selected)`;
+  currentAnalysis.excerpts = currentAnalysis.excerpts
+    ? `${currentAnalysis.excerpts}\n${line}`
+    : line;
+  $('excerpts-text').innerHTML = renderBullets(currentAnalysis.excerpts);
+
+  const toast = document.createElement('div');
+  toast.textContent = '✦ Excerpt added';
+  Object.assign(toast.style, {
+    position: 'fixed', bottom: '16px', left: '50%',
+    transform: 'translateX(-50%)',
+    background: '#07c160', color: '#fff',
+    padding: '5px 16px', borderRadius: '20px',
+    fontSize: '12px', zIndex: '9999', pointerEvents: 'none'
+  });
+  document.body.appendChild(toast);
+  setTimeout(() => toast.remove(), 1800);
+}
+
 Promise.all([loadAnalysisRules(), detectArticle({ silent: true })]).catch(error => showError(error.message));

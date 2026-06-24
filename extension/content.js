@@ -1,3 +1,60 @@
+// --- Click-to-excerpt: floating button on text selection ---
+(function setupExcerptSelection() {
+  const contentEl =
+    document.querySelector('#js_content') ||
+    document.querySelector('.rich_media_content');
+  if (!contentEl) return;
+
+  let excerptBtn = null;
+
+  function removeBtn() {
+    if (excerptBtn) { excerptBtn.remove(); excerptBtn = null; }
+  }
+
+  document.addEventListener('mouseup', () => {
+    const sel = window.getSelection();
+    const text = sel?.toString().trim();
+    if (!text || text.length < 8) { removeBtn(); return; }
+    if (!contentEl.contains(sel.anchorNode)) { removeBtn(); return; }
+
+    const para = sel.anchorNode.parentElement?.closest('[data-wrai-paragraph]');
+    const paragraphId = para?.dataset.wraiParagraph || '';
+
+    removeBtn();
+    excerptBtn = document.createElement('button');
+    excerptBtn.textContent = '✦ Add Excerpt';
+    Object.assign(excerptBtn.style, {
+      position: 'fixed', zIndex: '99999',
+      background: '#07c160', color: '#fff',
+      border: 'none', borderRadius: '6px',
+      padding: '5px 14px', fontSize: '13px',
+      cursor: 'pointer', boxShadow: '0 2px 8px rgba(0,0,0,.2)',
+      fontFamily: 'system-ui, sans-serif'
+    });
+
+    const range = sel.getRangeAt(0);
+    const rect = range.getBoundingClientRect();
+    excerptBtn.style.left = `${Math.max(8, rect.left + rect.width / 2 - 64)}px`;
+    excerptBtn.style.top  = `${rect.top - 40}px`;
+
+    document.body.appendChild(excerptBtn);
+
+    excerptBtn.addEventListener('mousedown', e => {
+      e.preventDefault();
+      chrome.runtime.sendMessage({ type: 'userExcerpt', text, paragraphId });
+      removeBtn();
+      sel.removeAllRanges();
+    });
+  });
+
+  document.addEventListener('mousedown', e => {
+    if (excerptBtn && e.target !== excerptBtn) removeBtn();
+  });
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') removeBtn();
+  });
+})();
+
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === 'extractArticle') {
     if (!location.hostname.includes('mp.weixin.qq.com')) {
