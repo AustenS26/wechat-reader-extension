@@ -81,11 +81,21 @@ body {
   gap: 12px;
 }
 
-.state-icon { font-size: 30px; }
+.state-icon {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #07c160;
+  border: 1px solid #b9ebcc;
+  border-radius: 999px;
+  padding: 3px 9px;
+}
 
 .state-panel p {
   font-size: 13px;
   line-height: 1.7;
+  white-space: pre-line;
 }
 
 /* Spinner */
@@ -166,6 +176,7 @@ body {
   transition: background 0.15s;
 }
 .btn-primary:hover { background: #06ad56; }
+.btn-primary.centered { align-self: center; }
 
 .btn-secondary {
   background: none;
@@ -177,6 +188,52 @@ body {
   cursor: pointer;
 }
 .btn-secondary:hover { background: #f0fdf4; }
+
+.action-row {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.inline-status {
+  color: #07c160;
+  font-size: 11px;
+  min-height: 16px;
+}
+
+.comment-row {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  border-top: 1px solid #efefef;
+  padding-top: 14px;
+  padding-bottom: 4px;
+}
+
+.comment-title {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: #07c160;
+}
+
+.comment-log {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 2px;
+}
+
+.comment-item {
+  border-left: 2px solid #b9ebcc;
+  padding-left: 8px;
+  color: #777;
+  font-size: 11px;
+  line-height: 1.5;
+}
 
 /* Chat */
 .chat-section {

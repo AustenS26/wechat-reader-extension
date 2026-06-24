@@ -19,13 +19,20 @@
     </div>
 
     <div id="state-no-article" class="state-panel">
-      <div class="state-icon">📖</div>
-      <p>打开一篇微信公众号文章<br>点击插件图标即可开始分析</p>
+      <div class="state-icon">Read</div>
+      <p>打开一篇微信公众号文章<br>再点击下方按钮识别页面</p>
+      <button id="btn-detect" class="btn-secondary">识别当前文章</button>
+    </div>
+
+    <div id="state-detected" class="state-panel hidden">
+      <div class="state-icon">Ready</div>
+      <p id="detected-message">已识别文章，可以开始分析</p>
+      <button id="btn-analyze" class="btn-primary centered">开始分析</button>
     </div>
 
     <div id="state-loading" class="state-panel hidden">
       <div class="spinner"></div>
-      <p>正在分析文章…</p>
+      <p id="loading-message">正在处理…</p>
     </div>
 
     <div id="state-error" class="state-panel hidden">
@@ -62,7 +69,20 @@
 
       <div class="save-row">
         <textarea id="my-notes" class="my-notes" placeholder="My notes…"></textarea>
-        <button id="btn-save-note" class="btn-primary">Save Note</button>
+        <div class="action-row">
+          <button id="btn-save-note" class="btn-primary">Save Note</button>
+          <button id="btn-export-current" class="btn-secondary">Export Markdown</button>
+        </div>
+      </div>
+
+      <div class="comment-row">
+        <div class="comment-title">Optimize with Comment</div>
+        <textarea id="comment-input" class="my-notes" placeholder="告诉我你希望怎么改这份输出，例如：更像投资备忘录 / 补充反方观点 / 把洞察改成可行动建议 / 不要太像 AI"></textarea>
+        <div class="action-row">
+          <button id="btn-apply-comment" class="btn-primary">Apply Comment</button>
+          <span id="comment-status" class="inline-status"></span>
+        </div>
+        <div id="comment-log" class="comment-log hidden"></div>
       </div>
     </div>
 

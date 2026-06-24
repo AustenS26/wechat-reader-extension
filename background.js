@@ -51,6 +51,7 @@ async function callAnthropic({ baseUrl, apiKey, model, system, messages }) {
     body: JSON.stringify({ model, max_tokens: 2048, system, messages })
   });
   const data = await res.json();
+  if (!res.ok) throw new Error(`Anthropic API ${res.status}: ${data.error?.message || res.statusText}`);
   if (data.error) throw new Error(data.error.message);
   return data.content[0].text;
 }
@@ -69,6 +70,7 @@ async function callOpenAICompat({ baseUrl, apiKey, model, system, messages }) {
     body: JSON.stringify({ model, max_tokens: 2048, messages: oaiMessages })
   });
   const data = await res.json();
+  if (!res.ok) throw new Error(`AI API ${res.status}: ${data.error?.message || data.message || res.statusText}`);
   if (data.error) throw new Error(data.error.message || JSON.stringify(data.error));
   return data.choices[0].message.content;
 }
@@ -98,6 +100,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === 'getArticle') {
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
       if (!tabs[0]) { sendResponse({ error: 'No active tab' }); return; }
+      if (!tabs[0].url?.startsWith('https://mp.weixin.qq.com/')) {
+        sendResponse({ error: 'Open a WeChat article (mp.weixin.qq.com) first.' });
+        return;
+      }
       chrome.tabs.sendMessage(tabs[0].id, { type: 'extractArticle' }, (response) => {
         if (chrome.runtime.lastError) {
           sendResponse({ error: 'Open a WeChat article (mp.weixin.qq.com) first.' });

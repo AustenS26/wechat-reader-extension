@@ -264,3 +264,31 @@ chat feedback → interaction log → backlog → implementation → reload exte
 
 - WR-001 and WR-002 are addressed by setup guidance under `docs/SETUP.md`.
 - WR-008 is addressed by adding a bilingual root `README.md`, moving process documents under `docs/`, and pushing the cleaned structure to GitHub.
+
+## 2026-06-24 · Core Reading Workflow and Comment Revision
+
+### User Chat Inputs
+
+| Time Context | User Message | What It Reveals |
+|---|---|---|
+| After README cleanup | “下一步重点不是继续堆功能，而是改善使用体验：更清晰的首次安装引导 / 更具体的错误诊断 / 更顺畅的‘打开文章 → 识别 → 分析’流程 / 更好地把导出的笔记沉淀到个人 reading-notes 文件夹” | User wants the plugin optimized around the main reading workflow, not feature sprawl. |
+| Same request | “我的下载文件夹里有一个html-comment-skiil你也可以参考那个思路，去思考我的这个extension怎么能够更好的支持多轮交互，我提一些comment你怎么优化输出？” | User wants comments to become structured feedback that can revise the output, similar to html-comment's comment-processing loop. |
+
+### Product Implication
+
+- The extension should not auto-jump from page open to AI generation without making extraction status visible.
+- Errors should explain what failed and what to do next.
+- Chat is not enough for output improvement; the user needs a comment-to-revision workflow.
+- Markdown export should use stable reading-notes naming so local automation can ingest it later.
+
+### Implementation Added
+
+- Added explicit `识别当前文章 → 开始分析` flow.
+- Added more specific unsupported-page, empty-content, missing-key, and API/network error guidance.
+- Added `Optimize with Comment`, storing applied comments per article and regenerating the five-section analysis.
+- Added current-note Markdown export with `reading-notes/YYYY-MM-DD-title.md` naming.
+
+### Backlog Impact
+
+- WR-003, WR-004, WR-005, WR-006 moved to Verify.
+- WR-009 added for comment-driven output revision.
