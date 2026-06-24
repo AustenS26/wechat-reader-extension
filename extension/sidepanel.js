@@ -1,8 +1,11 @@
 let article = null;
 let articleText = '';
+let articleLanguage = 'zh';
 let currentAnalysis = null;
 let chatHistory = [];
 let commentLog = [];
+let analysisRules = [];
+const RULES_KEY = 'wechatReaderAnalysisRules';
 
 const $ = id => document.getElementById(id);
 
@@ -53,6 +56,12 @@ function formatText(value = '') {
   return escapeHtml(value).replace(/\n/g, '<br>');
 }
 
+function detectLanguage(text = '') {
+  const cjk = (text.match(/[\u4e00-\u9fff]/g) || []).length;
+  const latin = (text.match(/[A-Za-z]/g) || []).length;
+  return cjk >= latin ? 'zh' : 'en';
+}
+
 function slugify(value = 'wechat-note') {
   return value
     .toLowerCase()
@@ -87,7 +96,25 @@ function renderBullets(raw) {
 }
 
 function linkParagraphRefs(html) {
-  return html.replace(/\[P(\d+)\]/g, '<button class="para-ref" data-pid="$1">P$1</button>');
+  return html.replace(/\[P(\d+)\]/g, '<button class="para-ref" data-pid="$1" title="Jump to paragraph P$1">P$1</button>');
+}
+
+function buildPreferenceBlock() {
+  if (!analysisRules.length) return '';
+  return `Standing user preferences:
+${analysisRules.map((rule, index) => `${index + 1}. ${rule}`).join('\n')}
+
+These preferences are always on unless the user explicitly overrides them.`;
+}
+
+function buildChatSystem() {
+  const preferenceBlock = buildPreferenceBlock();
+  const languageRule = articleLanguage === 'en'
+    ? 'Respond bilingually: English first, then Chinese.'
+    : 'Respond in Chinese unless the user explicitly asks for English.';
+  return `You are a reading assistant. Answer questions based on the article the user has read. Be concise, specific, and useful.
+${languageRule}
+${preferenceBlock ? `\n${preferenceBlock}\n` : '\n'}`.trim();
 }
 
 function renderAnalysis(analysis) {
@@ -129,12 +156,18 @@ function showError(error) {
 }
 
 function buildAnalysisSystem(extra = '') {
+  const languageRule = articleLanguage === 'en'
+    ? `The source article is English. Output every section bilingually: first English, then Chinese. Keep the Chinese concise but complete.`
+    : `The source article is Chinese. Output in Chinese only unless a direct English translation helps clarify a proper noun or technical term.`;
+  const preferenceBlock = buildPreferenceBlock();
   return `You are a reading assistant. Analyze the article and respond in the same language as the article content (Chinese or English).
 
 Format your response EXACTLY using these section headers in this order. Do not add extra headers or change the names.
 
 Always prioritize substance over outline. The user does not need a simple article structure recap. Explain the core points clearly, extract a small number of strong insights, and evaluate the article from reader perspectives.
 The article text is numbered by paragraph as [P1], [P2], etc. Use these paragraph ids when citing evidence. Keep excerpts short; do not quote long passages.
+${languageRule}
+${preferenceBlock ? `\n${preferenceBlock}\n` : '\n'}
 
 SUMMARY
 [3-5 sentences: what is this article about, what does it really argue, and why it matters]
@@ -188,6 +221,7 @@ async function detectArticle({ silent = false } = {}) {
   }
 
   article = result;
+  articleLanguage = result.language || detectLanguage(result.content || '');
   articleText = (article.paragraphs?.length
     ? article.paragraphs.map(p => `[P${p.id}] ${p.text}`).join('\n\n')
     : article.content
@@ -200,6 +234,7 @@ async function detectArticle({ silent = false } = {}) {
 
 async function analyzeArticle() {
   if (!article && !(await detectArticle({ silent: true }))) return;
+  if (!analysisRules.length) await loadAnalysisRules();
 
   $('loading-message').textContent = '正在生成结构化阅读结果…';
   showState('loading');
@@ -223,12 +258,14 @@ async function analyzeArticle() {
     { role: 'assistant', content: res.result }
   ];
   await loadCommentLog();
+  await loadAnalysisRules();
   showState('ready');
 }
 
 async function applyComment() {
   const comment = $('comment-input').value.trim();
   if (!comment || !currentAnalysis) return;
+  if (!analysisRules.length) await loadAnalysisRules();
 
   $('btn-apply-comment').disabled = true;
   $('comment-status').textContent = 'Optimizing…';
@@ -259,6 +296,7 @@ Do not invent facts beyond the article unless the user explicitly asks for broad
   chatHistory.push({ role: 'assistant', content: res.result });
 
   await saveCommentLog(comment);
+  await maybeSaveAnalysisRule(comment);
   $('comment-input').value = '';
   $('comment-status').textContent = 'Applied ✓';
   setTimeout(() => $('comment-status').textContent = '', 1800);
@@ -269,6 +307,29 @@ async function loadCommentLog() {
   const stored = await chrome.storage.local.get([key]);
   commentLog = stored[key] || [];
   renderCommentLog();
+}
+
+async function loadAnalysisRules() {
+  const stored = await chrome.storage.sync.get([RULES_KEY]);
+  analysisRules = Array.isArray(stored[RULES_KEY]) ? stored[RULES_KEY] : [];
+}
+
+function normalizeRule(rule) {
+  return rule.replace(/\s+/g, ' ').trim();
+}
+
+function looksLikeStandingRule(comment) {
+  const text = comment.toLowerCase();
+  return /(^always\b|^default\b|^when\b|^prefer\b|^use\b|^don'?t\b|^never\b|^keep\b|^make\b|^ensure\b|默认|一直|以后|每次|不要|保持|优先|规则|输出)/i.test(text);
+}
+
+async function maybeSaveAnalysisRule(comment) {
+  if (!looksLikeStandingRule(comment)) return;
+  const rule = normalizeRule(comment);
+  if (!rule || rule.length < 8) return;
+  if (analysisRules.some(existing => existing.toLowerCase() === rule.toLowerCase())) return;
+  analysisRules = [rule, ...analysisRules].slice(0, 20);
+  await chrome.storage.sync.set({ [RULES_KEY]: analysisRules });
 }
 
 async function saveCommentLog(comment) {
@@ -315,7 +376,7 @@ async function sendChat(userMsg) {
   $('btn-send').disabled = true;
 
   const res = await msg('callAI', {
-    system: 'You are a reading assistant. Answer questions concisely based on the article the user has read. Respond in the same language the user uses.',
+    system: buildChatSystem(),
     messages: chatHistory
   });
 
@@ -338,6 +399,7 @@ function buildCurrentNote() {
     title: article?.title || '',
     url: article?.url || '',
     author: article?.author || '',
+    language: articleLanguage,
     summary: $('summary-text').innerText,
     corePoints: $('structure-text').innerText,
     insights: $('insights-text').innerText,
@@ -356,6 +418,7 @@ function noteToMarkdown(n) {
     '',
     `> ${n.date}${n.author ? ' · ' + n.author : ''}`,
     n.url ? `> ${n.url}` : '',
+    n.language ? `> Language: ${n.language === 'en' ? 'English' : 'Chinese'}` : '',
     '',
     '## Summary',
     n.summary,
@@ -374,7 +437,7 @@ function downloadMarkdown(note) {
   const blob = new Blob([noteToMarkdown(note)], { type: 'text/markdown' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
-  a.download = `reading-notes/${note.date}-${slugify(note.title)}.md`;
+  a.download = `reading-notes_${note.date}-${slugify(note.title)}.md`;
   a.click();
   URL.revokeObjectURL(a.href);
 }
@@ -422,6 +485,10 @@ $('btn-export-current').addEventListener('click', () => {
   downloadMarkdown(buildCurrentNote());
 });
 
+$('comment-input').addEventListener('focus', () => {
+  if (!analysisRules.length) loadAnalysisRules().catch(() => {});
+});
+
 $('main-content').addEventListener('click', async event => {
   const ref = event.target.closest('.para-ref');
   if (!ref) return;
@@ -432,4 +499,4 @@ $('main-content').addEventListener('click', async event => {
   }
 });
 
-detectArticle({ silent: true }).catch(error => showError(error.message));
+Promise.all([loadAnalysisRules(), detectArticle({ silent: true })]).catch(error => showError(error.message));

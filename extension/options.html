@@ -67,7 +67,7 @@
 <body>
   <div class="page">
     <h1>WeChat Reader AI</h1>
-    <p class="subtitle">配置 AI 服务商 — 可同时保存多个 key，随时切换使用</p>
+    <p class="subtitle">配置 AI 服务商 — key 会自动保存，随时切换使用</p>
 
     <div id="providers-container"></div>
 
@@ -76,7 +76,7 @@
     <p class="section-title">Saved Notes</p>
     <p class="notes-count" id="notes-count">Loading…</p>
     <button class="btn-export" id="btn-export">Export all notes as Markdown</button>
-    <p class="hint">导出文件会使用 <code>reading-notes/YYYY-MM-DD-wechat-notes.md</code> 命名，便于后续同步到本地 reading-notes 项目。</p>
+    <p class="hint">导出文件会先落到下载目录，再被同步脚本收纳到 <code>personal/projects/reading-notes/reading</code> 并刷新索引。</p>
   </div>
 
   <script src="options.js"></script>

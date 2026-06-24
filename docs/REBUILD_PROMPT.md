@@ -26,6 +26,8 @@
 - **Chat**：侧边栏底部有对话框，可以就文章内容追问
 - **Save Note**：用户可填写个人笔记后保存，含文章标题/来源/分析结果
 - **Export**：Settings 页可将所有已保存笔记导出为 Markdown 文件
+- **Auto-save settings**：API Key / Model / Base URL 输入后自动保存，不需要手动点 Save
+- **Language-aware output**：中文文章只输出中文；英文文章输出中英双语
 - **多 Provider 支持**：Settings 页支持同时配置多个 AI 服务商的 API Key，可随时切换使用中的 provider，互不覆盖
 
 ### 支持的 AI Provider（全部使用，可独立配置 key + model）
@@ -76,11 +78,18 @@ chrome.storage.sync 存：
 - activeProvider: string
 
 chrome.storage.local 存：
-- notes: [ { date, title, url, author, summary, corePoints, insights, excerpts, readerValue, conclusion, authorIntent, myNotes } ]
+- notes: [ { date, title, url, author, language, summary, corePoints, insights, excerpts, readerValue, conclusion, authorIntent, myNotes } ]
+
+chrome.storage.sync 还会存：
+- analysisRules: [string]（从用户 comment 中沉淀出的可复用输出偏好）
 
 ## AI Prompt 格式
 System prompt 要求模型按以下固定 header 输出，语言与文章保持一致（中文文章用中文回答）：
 SUMMARY / CORE POINTS / KEY INSIGHTS / CORE EXCERPTS / READER VALUE / CORE CONCLUSION / AUTHOR INTENT
 
 前端用正则按 header 切分，分别渲染到对应 section。
+
+英文文章的输出要求：
+- 每个 section 用英文先讲清楚，再补一句中文
+- 核心摘录仍保留 `[P#]` 段落引用
 ```

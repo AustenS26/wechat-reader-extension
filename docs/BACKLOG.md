@@ -23,12 +23,14 @@
 | WR-003 | P1 | Improve first-use and article-specific launch | User gave a WeChat article URL and expected direct plugin activation. | Add clearer unsupported-page state and explicit “detect current article → start analysis” flow. | Verify |
 | WR-004 | P1 | Add diagnostics panel | Current errors are browser-level or generic extension errors. | Show supported page status, extraction status, API HTTP status, and recovery guidance. | Verify |
 | WR-005 | P1 | Improve actionable error messages | “Open a WeChat article first” and API errors are not enough for recovery. | Map common failures to specific next steps. | Verify |
-| WR-006 | P2 | Integrate notes with personal reading-notes folder | User placed reading-notes under `personal/projects` as a side project. | Improve export naming to `reading-notes/YYYY-MM-DD-title.md`; add helper/import workflow for `/Users/didi/work/work-hub/personal/projects/reading-notes` later. | Verify |
+| WR-006 | P2 | Integrate notes with personal reading-notes folder | User placed reading-notes under `personal/projects` as a side project. | Improve export naming to `reading-notes_YYYY-MM-DD-title.md`; add helper/import workflow for `/Users/didi/work/work-hub/personal/projects/reading-notes` later. | Verify |
 | WR-007 | P1 | Keep chat feedback as product backlog | User asked whether chat expectations can be captured. | Maintain `INTERACTION_LOG.md`; update this backlog when user confirms logging. | Ready |
 | WR-008 | P1 | Publish repository documentation to GitHub | “链接到我的GitHub仓库…沉淀read_me和实际这个小插件怎么做” | Add bilingual README and setup guide; move process docs into `docs/`; commit and push docs to GitHub remote. | Done |
-| WR-009 | P1 | Comment-driven output revision | User referenced `html-comment-skill` and asked how comments can improve extension output. | Add `Optimize with Comment`: store applied comments per article and regenerate the seven-section analysis from article + current output + user comment. | Verify |
+| WR-009 | P1 | Comment-driven output revision | User referenced `html-comment-skill` and asked how comments can improve extension output. | Add `Optimize with Comment`: store applied comments per article and regenerate the seven-section analysis from article + current output + user comment. Also persist reusable standing rules for future runs. | Verify |
 | WR-010 | P0 | Shift output from structure recap to reader-useful insights | “更讲清楚核心要点，insight而不是输出结构…思考读者的视角，这个文章对什么样的人分别有什么样的价值” | Replace Article Structure with Core Points; add Reader Value; make insights synthesized and less scattered by default. | Verify |
 | WR-011 | P1 | Add source-linked core excerpts | “有没有可能有一些核心摘录和能针对性指向文章某个部分的能力” | Extract paragraph ids, add Core Excerpts with `[P#]` references, and click refs to scroll the original article. | Verify |
+| WR-012 | P1 | Auto-save provider API keys | “帮我自动保存，不要每次都重新输入一次key” | Auto-save API key/model/base URL edits in the settings page so the provider state persists without manual Save clicks. | Verify |
+| WR-013 | P1 | Language-aware output rules | “中文文章输出中文，英文文章输出中英双文” | Detect article language and switch analysis/chat prompts accordingly; keep bilingual output for English articles. | Verify |
 
 ---
 

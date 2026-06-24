@@ -8,6 +8,7 @@ const PROVIDER_DEFS = {
 };
 
 let state = { providers: {}, activeProvider: 'anthropic' };
+let autoSaveTimers = {};
 
 async function loadState() {
   const stored = await chrome.storage.sync.get(['providers', 'activeProvider']);
@@ -15,7 +16,7 @@ async function loadState() {
   state.activeProvider = stored.activeProvider || 'anthropic';
 }
 
-async function saveProviderKey(id) {
+async function saveProviderKey(id, label = 'Saved ✓') {
   const keyInput = document.getElementById(`key-${id}`);
   const modelInput = document.getElementById(`model-${id}`);
   const urlInput = document.getElementById(`url-${id}`);
@@ -30,8 +31,17 @@ async function saveProviderKey(id) {
   state.providers[id] = entry;
   await chrome.storage.sync.set({ providers: state.providers });
 
-  status.textContent = 'Saved ✓';
+  status.textContent = label;
   setTimeout(() => status.textContent = '', 2000);
+}
+
+function scheduleAutoSave(id) {
+  clearTimeout(autoSaveTimers[id]);
+  const status = document.getElementById(`status-${id}`);
+  if (status) status.textContent = 'Saving…';
+  autoSaveTimers[id] = setTimeout(() => {
+    saveProviderKey(id, 'Auto-saved ✓').catch(() => {});
+  }, 500);
 }
 
 async function setActive(id) {
@@ -83,7 +93,15 @@ function renderCards() {
 
     container.appendChild(card);
 
+    const keyField = card.querySelector(`#key-${id}`);
+    const modelField = card.querySelector(`#model-${id}`);
+    const urlField = card.querySelector(`#url-${id}`);
+
     card.querySelector(`#save-${id}`).addEventListener('click', () => saveProviderKey(id));
+    [keyField, modelField, urlField].filter(Boolean).forEach(field => {
+      field.addEventListener('input', () => scheduleAutoSave(id));
+      field.addEventListener('blur', () => saveProviderKey(id, 'Auto-saved ✓'));
+    });
     if (!isActive) {
       card.querySelector(`#use-${id}`).addEventListener('click', () => setActive(id));
     }
@@ -104,6 +122,7 @@ document.getElementById('btn-export').addEventListener('click', () => {
       `## ${n.title}`,
       `> ${n.date}${n.author ? ' · ' + n.author : ''}`,
       n.url ? `> ${n.url}` : '',
+      n.language ? `> Language: ${n.language === 'en' ? 'English' : 'Chinese'}` : '',
       '',
       '### Summary',
       n.summary,
@@ -122,7 +141,7 @@ document.getElementById('btn-export').addEventListener('click', () => {
     const blob = new Blob([md], { type: 'text/markdown' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = `reading-notes/${new Date().toISOString().slice(0, 10)}-wechat-notes.md`;
+    a.download = `reading-notes_${new Date().toISOString().slice(0, 10)}-wechat-notes.md`;
     a.click();
     URL.revokeObjectURL(a.href);
   });

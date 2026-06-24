@@ -52,6 +52,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       }
     }
 
+    const languageBase = `${title}\n${content}`;
+    const cjk = (languageBase.match(/[\u4e00-\u9fff]/g) || []).length;
+    const latin = (languageBase.match(/[A-Za-z]/g) || []).length;
+    const language = cjk >= latin ? 'zh' : 'en';
+
     if (!content || content.length < 80) {
       sendResponse({
         error: 'Could not read article content. The page may still be loading or it may not be a WeChat article body.'
@@ -59,7 +64,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       return true;
     }
 
-    sendResponse({ title, author, date, content, paragraphs, url: window.location.href });
+    sendResponse({ title, author, date, content, paragraphs, language, url: window.location.href });
   }
 
   if (message.type === 'scrollToParagraph') {

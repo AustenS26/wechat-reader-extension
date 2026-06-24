@@ -343,3 +343,29 @@ chat feedback → interaction log → backlog → implementation → reload exte
 ### Backlog Impact
 
 - WR-011 added and moved to Verify.
+
+## 2026-06-24 · API Key Auto-Save, Language Rules, and Reusable Preferences
+
+### User Chat Inputs
+
+| Time Context | User Message | What It Reveals |
+|---|---|---|
+| After reading workflow changes | “阅读插件这里，是的请帮我继续完成Core Excerpts 的引用定位再做顺一点 - reading-notes 的自动沉淀继续稳定 - 你的 comment 变成可复用的输出优化规则，而不是一次性反馈。以及我目前输入的API key帮我自动保存，不要每次都重新输入一次key；接下来语言输出规则上，中文文章输出中文，英文文章输出中英双文” | The extension should behave more like a durable reader system: source-linked excerpts, stable note capture, persistent user preferences, and language-aware output. |
+
+### Product Implication
+
+- `Core Excerpts` should feel like source navigation, not just another bullet list.
+- Settings should persist automatically once the user types a key.
+- Comments should seed standing preferences when they are clearly policy-like.
+- Article language should drive prompt behavior.
+
+### Implementation Added
+
+- API key/model/base URL edits in the settings page now auto-save.
+- `Core Excerpts` got a click hint and `P#` buttons that jump back to source paragraphs.
+- English articles now trigger bilingual output; Chinese articles stay Chinese-first.
+- Reusable standing rules are loaded from storage and injected into future analysis/chat prompts.
+
+### Backlog Impact
+
+- WR-012 and WR-013 added and moved to Verify.
