@@ -285,10 +285,35 @@ chat feedback → interaction log → backlog → implementation → reload exte
 
 - Added explicit `识别当前文章 → 开始分析` flow.
 - Added more specific unsupported-page, empty-content, missing-key, and API/network error guidance.
-- Added `Optimize with Comment`, storing applied comments per article and regenerating the five-section analysis.
+- Added `Optimize with Comment`, storing applied comments per article and regenerating the six-section analysis.
 - Added current-note Markdown export with `reading-notes/YYYY-MM-DD-title.md` naming.
 
 ### Backlog Impact
 
 - WR-003, WR-004, WR-005, WR-006 moved to Verify.
 - WR-009 added for comment-driven output revision.
+
+## 2026-06-24 · Output Philosophy: Core Points, Synthesized Insights, Reader Value
+
+### User Chat Inputs
+
+| Time Context | User Message | What It Reveals |
+|---|---|---|
+| After trying the improved workflow direction | “OK，我有一个整体的修改意见：always 更讲清楚核心要点，insight而不是输出结构，光了解结构没有意义，现在的insight讲的很散乱。其次在思考输出文章内容的时候，思考读者的视角，这个文章对什么样的人分别有什么样的价值” | The default analysis should move away from outline-style article structure and toward a reader-useful interpretation: core points, fewer but stronger insights, and value by reader type. |
+
+### Product Implication
+
+- `Article Structure` is not a high-value default section for this reading assistant.
+- `Key Insights` should synthesize patterns, implications, and decision lenses instead of listing scattered facts.
+- The assistant should explicitly ask: useful to whom, and for what decision or action?
+
+### Implementation Added
+
+- Replaced the visible `Article Structure` section with `Core Points`.
+- Added `Reader Value`.
+- Updated the system prompt so every analysis prioritizes substance over outline.
+- Updated Markdown export and rebuild prompt to preserve the new output model.
+
+### Backlog Impact
+
+- WR-010 added and moved to Verify.

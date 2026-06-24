@@ -8,8 +8,9 @@ const $ = id => document.getElementById(id);
 
 const SECTION_HEADERS = [
   'SUMMARY',
-  'ARTICLE STRUCTURE',
+  'CORE POINTS',
   'KEY INSIGHTS',
+  'READER VALUE',
   'CORE CONCLUSION',
   'AUTHOR INTENT'
 ];
@@ -68,9 +69,10 @@ function parseAnalysis(text) {
   return {
     raw: text,
     summary: extractSection(text, 'SUMMARY', SECTION_HEADERS.slice(1)),
-    structure: extractSection(text, 'ARTICLE STRUCTURE', SECTION_HEADERS.slice(2)),
+    corePoints: extractSection(text, 'CORE POINTS', SECTION_HEADERS.slice(2)),
     insights: extractSection(text, 'KEY INSIGHTS', SECTION_HEADERS.slice(3)),
-    conclusion: extractSection(text, 'CORE CONCLUSION', SECTION_HEADERS.slice(4)),
+    readerValue: extractSection(text, 'READER VALUE', SECTION_HEADERS.slice(4)),
+    conclusion: extractSection(text, 'CORE CONCLUSION', SECTION_HEADERS.slice(5)),
     authorIntent: extractSection(text, 'AUTHOR INTENT', [])
   };
 }
@@ -87,8 +89,9 @@ function renderAnalysis(analysis) {
   $('summary-text').innerHTML = formatText(analysis.summary);
   $('conclusion-text').innerHTML = formatText(analysis.conclusion);
   $('author-text').innerHTML = formatText(analysis.authorIntent);
-  $('structure-text').innerHTML = analysis.structure ? renderBullets(analysis.structure) : '';
+  $('structure-text').innerHTML = analysis.corePoints ? renderBullets(analysis.corePoints) : '';
   $('insights-text').innerHTML = analysis.insights ? renderBullets(analysis.insights) : '';
+  $('reader-value-text').innerHTML = analysis.readerValue ? renderBullets(analysis.readerValue) : '';
 }
 
 function renderArticleBar() {
@@ -123,17 +126,26 @@ function buildAnalysisSystem(extra = '') {
 
 Format your response EXACTLY using these section headers in this order. Do not add extra headers or change the names.
 
-SUMMARY
-[3-5 sentences: what is this article about and what does it argue]
+Always prioritize substance over outline. The user does not need a simple article structure recap. Explain the core points clearly, extract a small number of strong insights, and evaluate the article from reader perspectives.
 
-ARTICLE STRUCTURE
-[A brief outline of how the article is organized. Keep it to 3-6 steps, one line each]
+SUMMARY
+[3-5 sentences: what is this article about, what does it really argue, and why it matters]
+
+CORE POINTS
+• [the author's main claim, in plain language]
+• [the most important supporting argument or evidence]
+• [the real tension, tradeoff, or problem the article is trying to resolve]
+• [what the article implies but may not say directly]
 
 KEY INSIGHTS
-• [specific, reusable insight: a fact, framework, or perspective worth keeping]
-• [insight]
-• [insight]
-• [insight if applicable]
+• [one synthesized, reusable insight. Do not list scattered facts.]
+• [one deeper implication, pattern, or decision lens]
+• [one practical takeaway or risk, if applicable]
+
+READER VALUE
+• [For reader type 1: who this is useful for, and what they can use it to decide or do]
+• [For reader type 2: who this is useful for, and what they can use it to decide or do]
+• [For reader type 3 if relevant: who may care less, and why]
 
 CORE CONCLUSION
 [1-2 sentences: the single most important takeaway]
@@ -209,7 +221,7 @@ async function applyComment() {
     system: buildAnalysisSystem(`The user has given a comment about the current output. Treat the comment as structured product feedback.
 
 Classify the comment internally as one of: EDIT, RESEARCH_REQUEST, STYLE, ACTIONABLE_NOTES, or AMBIGUOUS.
-Then revise the five-section output directly. If the comment is ambiguous, make the most useful conservative improvement and mention uncertainty inside the relevant section, not as an extra header.
+Then revise the six-section output directly. If the comment is ambiguous, make the most useful conservative improvement and mention uncertainty inside the relevant section, not as an extra header.
 Do not invent facts beyond the article unless the user explicitly asks for broader interpretation.`),
     messages: [
       { role: 'user', content: `Article:\n${articleText}` },
@@ -311,8 +323,9 @@ function buildCurrentNote() {
     url: article?.url || '',
     author: article?.author || '',
     summary: $('summary-text').innerText,
-    structure: $('structure-text').innerText,
+    corePoints: $('structure-text').innerText,
     insights: $('insights-text').innerText,
+    readerValue: $('reader-value-text').innerText,
     conclusion: $('conclusion-text').innerText,
     authorIntent: $('author-text').innerText,
     myNotes: $('my-notes').value.trim(),
@@ -329,8 +342,9 @@ function noteToMarkdown(n) {
     '',
     '## Summary',
     n.summary,
-    n.structure ? `\n## Article Structure\n${n.structure}` : '',
+    n.corePoints ? `\n## Core Points\n${n.corePoints}` : '',
     n.insights ? `\n## Key Insights\n${n.insights}` : '',
+    n.readerValue ? `\n## Reader Value\n${n.readerValue}` : '',
     n.conclusion ? `\n## Core Conclusion\n${n.conclusion}` : '',
     n.authorIntent ? `\n## Author Intent\n${n.authorIntent}` : '',
     n.myNotes ? `\n## My Notes\n${n.myNotes}` : '',

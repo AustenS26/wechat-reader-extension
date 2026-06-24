@@ -13,12 +13,13 @@
 
 当用户在浏览器打开微信公众号文章（mp.weixin.qq.com）并点击扩展图标时，右侧自动弹出侧边栏（Chrome Side Panel），对文章进行 AI 分析，并提供交互式问答。
 
-### 分析输出（按顺序展示 5 个模块）
+### 分析输出（按顺序展示 6 个模块）
 1. **Summary** — 3-5 句概括文章核心内容
-2. **Article Structure** — 文章结构梳理，列表形式（如：① 背景 → ② 问题 → ③ 案例 → ④ 结论）
-3. **Key Insights** — 3-4 条可复用的洞见/观点/数据，bullet point
-4. **Core Conclusion** — 1-2 句最核心的结论，读者应带走什么
-5. **Author Intent & Take** — 作者的目标/立场/野心/议程是什么？是否有明显偏见或目的？坦诚评价
+2. **Core Points** — 讲清楚文章真正的核心要点，不要复述文章结构
+3. **Key Insights** — 2-3 条经过聚合的洞见，不要散点罗列事实
+4. **Reader Value** — 从不同读者视角说明这篇文章分别有什么价值、能帮助他们判断或行动什么
+5. **Core Conclusion** — 1-2 句最核心的结论，读者应带走什么
+6. **Author Intent & Take** — 作者的目标/立场/野心/议程是什么？是否有明显偏见或目的？坦诚评价
 
 ### 其他功能
 - **Chat**：侧边栏底部有对话框，可以就文章内容追问
@@ -38,7 +39,7 @@
 - 风格：简洁白底，微信绿（#07c160）作为强调色
 - 顶部 header：插件名 + ⚙ 设置按钮
 - 文章信息栏：显示文章标题 + 作者 + 日期
-- 5 个分析模块各自独立 section，section title 用小号大写绿色字
+- 6 个分析模块各自独立 section，section title 用小号大写绿色字
 - 底部 Chat 区域固定在底部，最大高度 42%，可滚动
 - Settings 页：每个 provider 一张卡片，含 API Key 输入框 + Model 输入框（Custom 额外有 Base URL），Save 按钮独立保存，Use this 按钮切换当前使用的 provider，当前激活的 provider 卡片显示绿色边框和 "Using" badge
 
@@ -74,11 +75,11 @@ chrome.storage.sync 存：
 - activeProvider: string
 
 chrome.storage.local 存：
-- notes: [ { date, title, url, author, summary, structure, insights, conclusion, authorIntent, myNotes } ]
+- notes: [ { date, title, url, author, summary, corePoints, insights, readerValue, conclusion, authorIntent, myNotes } ]
 
 ## AI Prompt 格式
 System prompt 要求模型按以下固定 header 输出，语言与文章保持一致（中文文章用中文回答）：
-SUMMARY / ARTICLE STRUCTURE / KEY INSIGHTS / CORE CONCLUSION / AUTHOR INTENT
+SUMMARY / CORE POINTS / KEY INSIGHTS / READER VALUE / CORE CONCLUSION / AUTHOR INTENT
 
 前端用正则按 header 切分，分别渲染到对应 section。
 ```

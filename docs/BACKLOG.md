@@ -26,7 +26,8 @@
 | WR-006 | P2 | Integrate notes with personal reading-notes folder | User placed reading-notes under `personal/projects` as a side project. | Improve export naming to `reading-notes/YYYY-MM-DD-title.md`; add helper/import workflow for `/Users/didi/work/work-hub/personal/projects/reading-notes` later. | Verify |
 | WR-007 | P1 | Keep chat feedback as product backlog | User asked whether chat expectations can be captured. | Maintain `INTERACTION_LOG.md`; update this backlog when user confirms logging. | Ready |
 | WR-008 | P1 | Publish repository documentation to GitHub | “链接到我的GitHub仓库…沉淀read_me和实际这个小插件怎么做” | Add bilingual README and setup guide; move process docs into `docs/`; commit and push docs to GitHub remote. | Done |
-| WR-009 | P1 | Comment-driven output revision | User referenced `html-comment-skill` and asked how comments can improve extension output. | Add `Optimize with Comment`: store applied comments per article and regenerate the five-section analysis from article + current output + user comment. | Verify |
+| WR-009 | P1 | Comment-driven output revision | User referenced `html-comment-skill` and asked how comments can improve extension output. | Add `Optimize with Comment`: store applied comments per article and regenerate the six-section analysis from article + current output + user comment. | Verify |
+| WR-010 | P0 | Shift output from structure recap to reader-useful insights | “更讲清楚核心要点，insight而不是输出结构…思考读者的视角，这个文章对什么样的人分别有什么样的价值” | Replace Article Structure with Core Points; add Reader Value; make insights synthesized and less scattered by default. | Verify |
 
 ---
 
