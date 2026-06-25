@@ -1,51 +1,101 @@
 // --- Click-to-excerpt: floating button on text selection ---
 (function setupExcerptSelection() {
-  const contentEl =
-    document.querySelector('#js_content') ||
-    document.querySelector('.rich_media_content');
-  if (!contentEl) return;
+  let excerptSetupDone = false;
+
+  function findContentEl() {
+    return document.querySelector('#js_content') ||
+      document.querySelector('.rich_media_content');
+  }
+
+  function bootWhenReady() {
+    if (excerptSetupDone) return;
+    const contentEl = findContentEl();
+    if (!contentEl) return;
+    excerptSetupDone = true;
 
   let excerptBtn = null;
+  let excerptTimer = null;
 
   function removeBtn() {
     if (excerptBtn) { excerptBtn.remove(); excerptBtn = null; }
   }
 
-  document.addEventListener('mouseup', () => {
+  function getSelectedExcerptState() {
     const sel = window.getSelection();
     const text = sel?.toString().trim();
-    if (!text || text.length < 8) { removeBtn(); return; }
-    if (!contentEl.contains(sel.anchorNode)) { removeBtn(); return; }
+    if (!text || text.length < 8) return null;
+    const anchorNode = sel?.anchorNode || sel?.focusNode || null;
+    if (!anchorNode || !contentEl.contains(anchorNode)) return null;
 
-    const para = sel.anchorNode.parentElement?.closest('[data-wrai-paragraph]');
+    const para = (anchorNode.parentElement || anchorNode.parentNode)?.closest?.('[data-wrai-paragraph]');
     const paragraphId = para?.dataset.wraiParagraph || '';
+    const range = sel.rangeCount ? sel.getRangeAt(0) : null;
+    const rect = range?.getBoundingClientRect?.() || null;
+    if (!rect || (rect.width === 0 && rect.height === 0)) return null;
 
+    return { text, paragraphId, rect, sel };
+  }
+
+  function placeButton(rect) {
     removeBtn();
     excerptBtn = document.createElement('button');
     excerptBtn.textContent = '✦ Add Excerpt';
+    excerptBtn.type = 'button';
+    excerptBtn.title = 'Save selected text as a Core Excerpt';
     Object.assign(excerptBtn.style, {
       position: 'fixed', zIndex: '99999',
       background: '#07c160', color: '#fff',
       border: 'none', borderRadius: '6px',
       padding: '5px 14px', fontSize: '13px',
       cursor: 'pointer', boxShadow: '0 2px 8px rgba(0,0,0,.2)',
-      fontFamily: 'system-ui, sans-serif'
+      fontFamily: 'system-ui, sans-serif',
+      lineHeight: '1.2', whiteSpace: 'nowrap'
     });
 
-    const range = sel.getRangeAt(0);
-    const rect = range.getBoundingClientRect();
-    excerptBtn.style.left = `${Math.max(8, rect.left + rect.width / 2 - 64)}px`;
-    excerptBtn.style.top  = `${rect.top - 40}px`;
+    const left = Math.min(
+      window.innerWidth - 110,
+      Math.max(8, rect.left + rect.width / 2 - 64)
+    );
+    const aboveTop = rect.top - 42;
+    const belowTop = rect.bottom + 10;
+    excerptBtn.style.left = `${left}px`;
+    excerptBtn.style.top = `${aboveTop >= 8 ? aboveTop : belowTop}px`;
 
     document.body.appendChild(excerptBtn);
 
     excerptBtn.addEventListener('mousedown', e => {
       e.preventDefault();
-      chrome.runtime.sendMessage({ type: 'userExcerpt', text, paragraphId, url: location.href });
+      const sel = window.getSelection();
+      const text = sel?.toString().trim();
+      const anchorNode = sel?.anchorNode || sel?.focusNode || null;
+      const para = (anchorNode?.parentElement || anchorNode?.parentNode)?.closest?.('[data-wrai-paragraph]');
+      const paragraphId = para?.dataset.wraiParagraph || '';
+      if (!text) return;
+      const note = window.prompt('Add a note for this excerpt (optional):', '') || '';
+      chrome.runtime.sendMessage({
+        type: 'userExcerpt',
+        text,
+        note,
+        paragraphId,
+        url: location.href
+      });
       removeBtn();
       sel.removeAllRanges();
     });
-  });
+  }
+
+  function scheduleExcerptButton() {
+    clearTimeout(excerptTimer);
+    excerptTimer = setTimeout(() => {
+      const state = getSelectedExcerptState();
+      if (!state) { removeBtn(); return; }
+      placeButton(state.rect);
+    }, 30);
+  }
+
+  document.addEventListener('mouseup', scheduleExcerptButton);
+  document.addEventListener('keyup', scheduleExcerptButton);
+  document.addEventListener('selectionchange', scheduleExcerptButton);
 
   document.addEventListener('mousedown', e => {
     if (excerptBtn && e.target !== excerptBtn) removeBtn();
@@ -53,6 +103,24 @@
   document.addEventListener('keydown', e => {
     if (e.key === 'Escape') removeBtn();
   });
+  }
+
+  bootWhenReady();
+  if (!excerptSetupDone) {
+    const observer = new MutationObserver(() => {
+      if (excerptSetupDone) {
+        observer.disconnect();
+        return;
+      }
+      const contentEl = findContentEl();
+      if (contentEl) {
+        observer.disconnect();
+        bootWhenReady();
+      }
+    });
+    observer.observe(document.documentElement, { childList: true, subtree: true });
+    setTimeout(() => observer.disconnect(), 15000);
+  }
 })();
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {

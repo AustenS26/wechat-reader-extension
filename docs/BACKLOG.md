@@ -32,6 +32,7 @@
 | WR-012 | P1 | Auto-save provider API keys | “帮我自动保存，不要每次都重新输入一次key” | Auto-save API key/model/base URL edits in the settings page so the provider state persists without manual Save clicks. | Verify |
 | WR-013 | P1 | Language-aware output rules | “中文文章输出中文，英文文章输出中英双文” | Detect article language and switch analysis/chat prompts accordingly; keep bilingual output for English articles. | Verify |
 | WR-014 | P1 | Persist click-selected core excerpts | “Core Excerpts 支持在页面上点选一段内容，直接沉淀为一条摘录” | Store selected text per article in `selectedExcerpts:<url>`, auto-merge into Core Excerpts, and reload it on future opens without duplication. | Verify |
+| WR-015 | P1 | Add notes, edit, and delete for core excerpts | “在add excerpt的时候我能不能直接加note…”，“把这个也坐上” | Let users attach a note when saving an excerpt, edit the saved note later, and delete the excerpt from the side panel without affecting AI excerpts. | Verify |
 
 ---
 

@@ -53,8 +53,20 @@ function escapeHtml(value = '') {
     .replace(/'/g, '&#039;');
 }
 
+function stripMarkdownNoise(value = '') {
+  return String(value)
+    .replace(/\r/g, '')
+    .replace(/^\s*#{1,6}\s*/gm, '')
+    .replace(/^\s*[-*_]{3,}\s*$/gm, '')
+    .replace(/\*\*(.*?)\*\*/g, '$1')
+    .replace(/\*(.*?)\*/g, '$1')
+    .replace(/__(.*?)__/g, '$1')
+    .replace(/_(.*?)_/g, '$1')
+    .trim();
+}
+
 function formatText(value = '') {
-  return escapeHtml(value).replace(/\n/g, '<br>');
+  return escapeHtml(stripMarkdownNoise(value)).replace(/\n/g, '<br>');
 }
 
 function detectLanguage(text = '') {
@@ -72,32 +84,69 @@ function slugify(value = 'wechat-note') {
 }
 
 function extractSection(text, header, nextHeaders) {
-  const pattern = new RegExp(`${header}\\s*([\\s\\S]*?)(?=${nextHeaders.join('|')}|$)`, 'i');
-  return text.match(pattern)?.[1]?.trim() || '';
+  const normalized = stripMarkdownNoise(text);
+  if (!nextHeaders.length) {
+    const pattern = new RegExp(String.raw`(?:^|\n)\s*(?:#{1,6}\s*)?${header}\s*([\s\S]*)$`, 'i');
+    return normalized.match(pattern)?.[1]?.trim() || '';
+  }
+  const escapedNext = nextHeaders.map(h => h.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+  const pattern = new RegExp(
+    String.raw`(?:^|\n)\s*(?:#{1,6}\s*)?${header}\s*([\s\S]*?)(?=(?:^|\n)\s*(?:#{1,6}\s*)?(?:${escapedNext.join('|')})\s*|$)`,
+    'i'
+  );
+  return normalized.match(pattern)?.[1]?.trim() || '';
 }
 
 function parseAnalysis(text) {
+  const cleaned = stripMarkdownNoise(text);
   return {
-    raw: text,
-    summary: extractSection(text, 'SUMMARY', SECTION_HEADERS.slice(1)),
-    corePoints: extractSection(text, 'CORE POINTS', SECTION_HEADERS.slice(2)),
-    insights: extractSection(text, 'KEY INSIGHTS', SECTION_HEADERS.slice(3)),
-    excerpts: extractSection(text, 'CORE EXCERPTS', SECTION_HEADERS.slice(4)),
-    readerValue: extractSection(text, 'READER VALUE', SECTION_HEADERS.slice(5)),
-    conclusion: extractSection(text, 'CORE CONCLUSION', SECTION_HEADERS.slice(6)),
-    authorIntent: extractSection(text, 'AUTHOR INTENT', [])
+    raw: cleaned,
+    summary: extractSection(cleaned, 'SUMMARY', SECTION_HEADERS.slice(1)),
+    corePoints: extractSection(cleaned, 'CORE POINTS', SECTION_HEADERS.slice(2)),
+    insights: extractSection(cleaned, 'KEY INSIGHTS', SECTION_HEADERS.slice(3)),
+    excerpts: extractSection(cleaned, 'CORE EXCERPTS', SECTION_HEADERS.slice(4)),
+    readerValue: extractSection(cleaned, 'READER VALUE', SECTION_HEADERS.slice(5)),
+    conclusion: extractSection(cleaned, 'CORE CONCLUSION', SECTION_HEADERS.slice(6)),
+    authorIntent: extractSection(cleaned, 'AUTHOR INTENT', [])
   };
 }
 
 function renderBullets(raw) {
-  const items = raw.split('\n').filter(l => l.trim())
-    .map(l => `<li>${linkParagraphRefs(escapeHtml(l.replace(/^[•\-\*①②③④⑤]\s*/, '').trim()))}</li>`)
+  const items = stripMarkdownNoise(raw)
+    .split('\n')
+    .map(line => line.replace(/^\s*(?:[•\-\*①②③④⑤]|[0-9]+[.)])\s*/, '').trim())
+    .filter(Boolean)
+    .map(l => `<li>${linkParagraphRefs(escapeHtml(stripMarkdownNoise(l)))}</li>`)
     .join('');
   return `<ul>${items}</ul>`;
 }
 
 function linkParagraphRefs(html) {
-  return html.replace(/\[P(\d+)\]/g, '<button class="para-ref" data-pid="$1" title="Jump to paragraph P$1">P$1</button>');
+  return html.replace(/\[P([^\]]+)\]/g, (match, rawIds) => {
+    const ids = String(rawIds)
+      .split(/[\/,，\-—~]+/)
+      .map(id => id.trim().replace(/\D/g, ''))
+      .filter(Boolean);
+    if (!ids.length) return match;
+    const first = ids[0];
+    const label = ids.length > 1 ? ids.map(id => `P${id}`).join('/') : `P${first}`;
+    const extra = ids.length > 1 ? ` data-pids="${ids.join(',')}"` : '';
+    return `<button class="para-ref" data-pid="${first}"${extra} title="Jump to paragraph ${label}">${label}</button>`;
+  });
+}
+
+function extractFirstParagraphNumber(text = '') {
+  const match = String(text).match(/\[P(\d+)/);
+  return match ? Number(match[1]) : Number.POSITIVE_INFINITY;
+}
+
+function parseParagraphIds(text = '') {
+  const match = String(text).match(/\[P([^\]]+)\]/);
+  if (!match) return [];
+  return match[1]
+    .split(/[\/,，\-—~]+/)
+    .map(id => id.trim().replace(/\D/g, ''))
+    .filter(Boolean);
 }
 
 function buildPreferenceBlock() {
@@ -125,33 +174,128 @@ function renderAnalysis(analysis) {
   $('author-text').innerHTML = formatText(analysis.authorIntent);
   $('structure-text').innerHTML = analysis.corePoints ? renderBullets(analysis.corePoints) : '';
   $('insights-text').innerHTML = analysis.insights ? renderBullets(analysis.insights) : '';
-  $('excerpts-text').innerHTML = mergedExcerpts(analysis.excerpts, selectedExcerpts)
-    ? renderBullets(mergedExcerpts(analysis.excerpts, selectedExcerpts))
-    : '';
+  $('excerpts-text').innerHTML = renderExcerptCards(buildExcerptItems(analysis.excerpts, selectedExcerpts));
   $('reader-value-text').innerHTML = analysis.readerValue ? renderBullets(analysis.readerValue) : '';
 }
 
-function mergedExcerpts(aiExcerpts = '', userExcerpts = []) {
-  const seen = new Set();
-  const lines = [];
+function buildExcerptItems(aiExcerpts = '', userExcerpts = []) {
+  const groups = new Map();
 
-  const push = line => {
-    const normalized = line.replace(/\s+/g, ' ').trim().toLowerCase();
-    if (!normalized || seen.has(normalized)) return;
-    seen.add(normalized);
-    lines.push(line);
+  const ensureGroup = (key, ids, sortKey, source = 'ai') => {
+    const existing = groups.get(key);
+    if (existing) {
+      existing.sortKey = Math.min(existing.sortKey, sortKey);
+      existing.sourceTypes.add(source);
+      return existing;
+    }
+    const created = {
+      key,
+      sortKey,
+      order: groups.size,
+      paragraphIds: ids,
+      sourceTypes: new Set([source]),
+      aiSnippets: [],
+      userEntries: []
+    };
+    groups.set(key, created);
+    return created;
   };
 
-  aiExcerpts.split('\n').forEach(line => {
-    const trimmed = line.trim();
-    if (trimmed) push(trimmed);
+  stripMarkdownNoise(aiExcerpts).split('\n').forEach(line => {
+    const trimmed = stripMarkdownNoise(line).replace(/^\s*(?:[•\-\*①②③④⑤]|[0-9]+[.)])\s*/, '').trim();
+    if (!trimmed) return;
+    const paragraphIds = parseParagraphIds(trimmed);
+    const key = paragraphIds.length ? paragraphIds.join('/') : `ai:${trimmed.toLowerCase()}`;
+    const group = ensureGroup(key, paragraphIds, extractFirstParagraphNumber(trimmed), 'ai');
+    const body = trimmed
+      .replace(/^\[P[^\]]+\]\s*/, '')
+      .replace(/^\s*"(.+)"\s*$/, '$1')
+      .trim();
+    if (!group.aiSnippets.includes(body)) group.aiSnippets.push(body);
   });
 
   userExcerpts.forEach(item => {
-    const text = String(item.text || '').trim();
+    const text = stripMarkdownNoise(String(item.text || '')).trim();
     if (!text) return;
-    const ref = item.paragraphId ? `[P${item.paragraphId}] ` : '';
-    push(`• ${ref}"${text}" — Reader selected`);
+    const ids = String(item.paragraphId || '')
+      .split(/[\/,，\-—~]+/)
+      .map(id => id.trim().replace(/\D/g, ''))
+      .filter(Boolean);
+    const key = ids.length ? ids.join('/') : `user:${text.toLowerCase()}`;
+    const group = ensureGroup(key, ids, ids.length ? Number(ids[0]) : Number.POSITIVE_INFINITY, 'user');
+    const note = stripMarkdownNoise(String(item.note || '')).trim();
+    const exists = group.userEntries.some(entry =>
+      entry.text.trim().toLowerCase() === text.toLowerCase() &&
+      entry.note.trim().toLowerCase() === note.toLowerCase()
+    );
+    if (!exists) group.userEntries.push({ text, note });
+  });
+
+  return Array.from(groups.values())
+    .sort((a, b) => a.sortKey - b.sortKey || a.order - b.order)
+    .map(item => ({
+      ...item,
+      source: item.sourceTypes.has('user') ? 'user' : 'ai'
+    }));
+}
+
+function renderExcerptCards(items = []) {
+  if (!items.length) return '';
+  return `<div class="excerpt-list">${items.map(item => {
+    const ids = item.paragraphIds || [];
+    const refLabel = ids.length ? ids.map(id => `P${id}`).join('/') : '';
+    const refBtn = ids.length
+      ? `<button class="para-ref" data-pid="${ids[0]}"${ids.length > 1 ? ` data-pids="${ids.join(',')}"` : ''} title="Jump to paragraph ${refLabel}">${refLabel}</button>`
+      : '';
+    const aiSnippets = (item.aiSnippets || []).map(s => escapeHtml(stripMarkdownNoise(s))).filter(Boolean);
+    return `
+      <div class="excerpt-card">
+        <div class="excerpt-card-head">
+          ${refBtn || ''}
+          ${item.source === 'user' ? '<span class="excerpt-tag">Your note</span>' : '<span class="excerpt-tag muted">AI</span>'}
+        </div>
+        ${aiSnippets.length ? `<div class="excerpt-text">${aiSnippets.join('<br><br>')}</div>` : ''}
+        ${(item.userEntries || []).map(entry => {
+          const entryNote = escapeHtml(stripMarkdownNoise(entry.note || ''));
+          return `
+            <div class="excerpt-user-entry"
+                 data-excerpt-text="${escapeHtml(entry.text)}"
+                 data-excerpt-paragraph="${escapeHtml(ids.join('/'))}">
+              <div class="excerpt-text user">${escapeHtml(entry.text)}</div>
+              ${entryNote ? `<div class="excerpt-note"><span class="excerpt-note-label">Note</span>${entryNote}</div>` : '<div class="excerpt-note excerpt-note-empty">No note yet</div>'}
+              <div class="excerpt-actions">
+                <button class="excerpt-action excerpt-edit" data-excerpt-text="${escapeHtml(entry.text)}" data-excerpt-paragraph="${escapeHtml(ids.join('/'))}">Edit note</button>
+                <button class="excerpt-action excerpt-delete" data-excerpt-text="${escapeHtml(entry.text)}" data-excerpt-paragraph="${escapeHtml(ids.join('/'))}">Delete</button>
+              </div>
+            </div>
+          `;
+        }).join('')}
+      </div>
+    `;
+  }).join('')}</div>`;
+}
+
+function serializeExcerptItems(items = []) {
+  if (!items.length) return '';
+  const lines = [];
+
+  items.forEach(item => {
+    const ids = item.paragraphIds || [];
+    const ref = ids.length ? `[P${ids.join('/')}] ` : '';
+    const aiSnippets = (item.aiSnippets || []).map(s => stripMarkdownNoise(s)).filter(Boolean);
+    const userEntries = item.userEntries || [];
+
+    aiSnippets.forEach(snippet => {
+      lines.push(`- ${ref}"${snippet}"`);
+    });
+
+    userEntries.forEach(entry => {
+      const text = stripMarkdownNoise(entry.text || '').trim();
+      if (!text) return;
+      lines.push(`- ${ref}"${text}"`);
+      const note = stripMarkdownNoise(entry.note || '').trim();
+      if (note) lines.push(`  - Note: ${note}`);
+    });
   });
 
   return lines.join('\n');
@@ -192,6 +336,7 @@ function buildAnalysisSystem(extra = '') {
   return `You are a reading assistant. Analyze the article and respond in the same language as the article content (Chinese or English).
 
 Format your response EXACTLY using these section headers in this order. Do not add extra headers or change the names.
+Inside the body of each section, avoid markdown decoration such as ###, **, __, or nested bullets unless the content absolutely requires a list.
 
 Always prioritize substance over outline. The user does not need a simple article structure recap. Explain the core points clearly, extract a small number of strong insights, and evaluate the article from reader perspectives.
 The article text is numbered by paragraph as [P1], [P2], etc. Use these paragraph ids when citing evidence. Keep excerpts short; do not quote long passages.
@@ -357,8 +502,48 @@ async function loadSelectedExcerpts() {
 
 function renderCurrentExcerpts() {
   if (!currentAnalysis) return;
-  const merged = mergedExcerpts(currentAnalysis.excerpts, selectedExcerpts);
-  $('excerpts-text').innerHTML = merged ? renderBullets(merged) : '';
+  $('excerpts-text').innerHTML = renderExcerptCards(buildExcerptItems(currentAnalysis.excerpts, selectedExcerpts));
+}
+
+function getExcerptIdentity(target) {
+  return {
+    text: String(target?.dataset.excerptText || '').trim(),
+    paragraphId: String(target?.dataset.excerptParagraph || '').trim()
+  };
+}
+
+async function updateExcerptNote(target) {
+  const { text, paragraphId } = getExcerptIdentity(target);
+  if (!text) return;
+  const current = selectedExcerpts.find(item =>
+    String(item.text || '').trim() === text && String(item.paragraphId || '').trim() === paragraphId
+  );
+  const next = window.prompt('Edit note', current?.note || '');
+  if (next === null) return;
+  const res = await msg('updateExcerptNote', {
+    url: article?.url || '',
+    text,
+    paragraphId,
+    note: next
+  });
+  if (res?.error) {
+    showError(res.error);
+  }
+}
+
+async function deleteExcerpt(target) {
+  const { text, paragraphId } = getExcerptIdentity(target);
+  if (!text) return;
+  const ok = window.confirm('Delete this excerpt?');
+  if (!ok) return;
+  const res = await msg('deleteExcerpt', {
+    url: article?.url || '',
+    text,
+    paragraphId
+  });
+  if (res?.error) {
+    showError(res.error);
+  }
 }
 
 function normalizeRule(rule) {
@@ -441,6 +626,7 @@ async function sendChat(userMsg) {
 }
 
 function buildCurrentNote() {
+  const excerptItems = buildExcerptItems(currentAnalysis?.excerpts || '', selectedExcerpts);
   return {
     date: new Date().toISOString().slice(0, 10),
     title: article?.title || '',
@@ -450,7 +636,7 @@ function buildCurrentNote() {
     summary: $('summary-text').innerText,
     corePoints: $('structure-text').innerText,
     insights: $('insights-text').innerText,
-    excerpts: $('excerpts-text').innerText,
+    excerpts: serializeExcerptItems(excerptItems),
     readerValue: $('reader-value-text').innerText,
     conclusion: $('conclusion-text').innerText,
     authorIntent: $('author-text').innerText,
@@ -538,11 +724,30 @@ $('comment-input').addEventListener('focus', () => {
 
 $('main-content').addEventListener('click', async event => {
   const ref = event.target.closest('.para-ref');
-  if (!ref) return;
-  const res = await msg('scrollToParagraph', { paragraphId: ref.dataset.pid });
-  if (res?.error) {
-    $('comment-status').textContent = res.error;
-    setTimeout(() => $('comment-status').textContent = '', 2400);
+  if (ref) {
+    const pids = String(ref.dataset.pids || '').split(',').map(v => v.trim()).filter(Boolean);
+    const res = await msg('scrollToParagraph', { paragraphId: ref.dataset.pid });
+    if (res?.error) {
+      $('comment-status').textContent = res.error;
+      setTimeout(() => $('comment-status').textContent = '', 2400);
+      return;
+    }
+    if (pids.length > 1) {
+      showExcerptToast(`Jumped to P${ref.dataset.pid}; also referenced ${pids.slice(1).map(id => `P${id}`).join(', ')}`);
+    }
+    return;
+  }
+
+  const editBtn = event.target.closest('.excerpt-edit');
+  if (editBtn) {
+    await updateExcerptNote(editBtn);
+    return;
+  }
+
+  const deleteBtn = event.target.closest('.excerpt-delete');
+  if (deleteBtn) {
+    await deleteExcerpt(deleteBtn);
+    return;
   }
 });
 

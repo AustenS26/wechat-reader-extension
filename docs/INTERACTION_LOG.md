@@ -393,3 +393,30 @@ chat feedback → interaction log → backlog → implementation → reload exte
 ### Backlog Impact
 
 - WR-014 added and moved to Verify.
+
+## 2026-06-24 · Excerpt Notes, Edit, and Delete
+
+### User Chat Inputs
+
+| Time Context | User Message | What It Reveals |
+|---|---|---|
+| After excerpt capture became stable | “在add excerpt的时候我能不能直接加note？这样可以让我的note和原文对应” | The excerpt flow should bind the user’s note to the exact source paragraph at capture time. |
+| Same iteration | “OK当我不小心重新打开这个文章然后add了同一段作为excerpt时不再加入我的note里” | Repeated adds for the same excerpt should be idempotent; they should not duplicate or mutate the existing note unless explicitly edited. |
+| Follow-up | “好的，你把这个也坐上” | The side panel should let the user maintain excerpt notes directly after capture. |
+
+### Product Implication
+
+- Excerpts need to behave like durable source-linked records, not transient UI state.
+- Editing and deleting should be explicit actions on the saved excerpt, not side effects of re-adding it.
+
+### Implementation Added
+
+- `userExcerpt` now supports an optional note at capture time.
+- Duplicate excerpt capture is idempotent and will not overwrite an existing note.
+- `Core Excerpts` now render as cards with source-linked notes.
+- `Edit note` and `Delete` actions update excerpt storage directly.
+- Markdown note export now serializes excerpts from structured data instead of reading the rendered UI text.
+
+### Backlog Impact
+
+- WR-015 added and moved to Verify.

@@ -108,6 +108,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       const { [key]: selectedExcerpts = [] } = await chrome.storage.local.get([key]);
       const nextItem = {
         text: message.text || '',
+        note: String(message.note || '').trim(),
         paragraphId: String(message.paragraphId || '').replace(/\D/g, ''),
         ts: new Date().toISOString()
       };
@@ -116,16 +117,85 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       const exists = selectedExcerpts.some(item =>
         item.text?.trim() === normalized && String(item.paragraphId || '') === nextItem.paragraphId
       );
-      const nextList = exists ? selectedExcerpts : [nextItem, ...selectedExcerpts].slice(0, 30);
-      await chrome.storage.local.set({ [key]: nextList });
+      let nextList = selectedExcerpts;
+      let changed = false;
 
-      chrome.runtime.sendMessage({
-        type: 'selectedExcerptUpdated',
-        url: articleUrl,
-        excerpt: nextItem,
-        list: nextList
+      if (exists) {
+        nextList = selectedExcerpts.map(item => {
+          const sameItem = item.text?.trim() === normalized && String(item.paragraphId || '') === nextItem.paragraphId;
+          if (!sameItem) return item;
+          const shouldUpdateNote = nextItem.note && !String(item.note || '').trim();
+          if (!shouldUpdateNote) return item;
+          changed = true;
+          return { ...item, note: nextItem.note, ts: nextItem.ts };
+        });
+      } else {
+        changed = true;
+        nextList = [nextItem, ...selectedExcerpts].slice(0, 30);
+      }
+
+      if (changed) {
+        await chrome.storage.local.set({ [key]: nextList });
+
+        chrome.runtime.sendMessage({
+          type: 'selectedExcerptUpdated',
+          url: articleUrl,
+          excerpt: nextItem,
+          list: nextList
+        });
+      }
+
+      sendResponse({ ok: true, count: nextList.length, duplicate: exists && !changed });
+    })().catch(err => sendResponse({ error: err.message }));
+    return true;
+  }
+
+  if (message.type === 'updateExcerptNote') {
+    (async () => {
+      const articleUrl = message.url || sender?.tab?.url || '';
+      if (!articleUrl) {
+        sendResponse({ error: 'Missing article URL for excerpt update.' });
+        return;
+      }
+
+      const key = `selectedExcerpts:${articleUrl}`;
+      const { [key]: selectedExcerpts = [] } = await chrome.storage.local.get([key]);
+      const text = String(message.text || '').trim();
+      const paragraphId = String(message.paragraphId || '').replace(/\D/g, '');
+      const note = String(message.note || '').trim();
+
+      const nextList = selectedExcerpts.map(item => {
+        const sameItem = item.text?.trim() === text && String(item.paragraphId || '') === paragraphId;
+        if (!sameItem) return item;
+        return { ...item, note, ts: new Date().toISOString() };
       });
 
+      await chrome.storage.local.set({ [key]: nextList });
+      chrome.runtime.sendMessage({ type: 'selectedExcerptUpdated', url: articleUrl, list: nextList });
+      sendResponse({ ok: true, count: nextList.length });
+    })().catch(err => sendResponse({ error: err.message }));
+    return true;
+  }
+
+  if (message.type === 'deleteExcerpt') {
+    (async () => {
+      const articleUrl = message.url || sender?.tab?.url || '';
+      if (!articleUrl) {
+        sendResponse({ error: 'Missing article URL for excerpt deletion.' });
+        return;
+      }
+
+      const key = `selectedExcerpts:${articleUrl}`;
+      const { [key]: selectedExcerpts = [] } = await chrome.storage.local.get([key]);
+      const text = String(message.text || '').trim();
+      const paragraphId = String(message.paragraphId || '').replace(/\D/g, '');
+
+      const nextList = selectedExcerpts.filter(item =>
+        !(item.text?.trim() === text && String(item.paragraphId || '') === paragraphId)
+      );
+
+      await chrome.storage.local.set({ [key]: nextList });
+      chrome.runtime.sendMessage({ type: 'selectedExcerptUpdated', url: articleUrl, list: nextList });
       sendResponse({ ok: true, count: nextList.length });
     })().catch(err => sendResponse({ error: err.message }));
     return true;
